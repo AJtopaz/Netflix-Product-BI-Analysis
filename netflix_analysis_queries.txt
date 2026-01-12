@@ -1,0 +1,298 @@
+CREATE SCHEMA netflix;
+SET search_path TO netflix;
+
+CREATE TABLE movies (
+    movie_id TEXT PRIMARY KEY,
+	title TEXT,
+	content_type TEXT,
+	genre_primary TEXT,
+	genre_secondary TEXT,
+	release_year DATE,
+	duration_minutes TIME,
+	rating TEXT,
+	language TEXT,
+	country_of_origin TEXT,
+	imdb_rating NUMERIC,
+	production_budget INT,
+	box_office_revenue INT,
+	number_of_seasons INT,
+	number_of_episodes INT,
+	is_netflix_original TEXT,
+	added_to_platform DATE,
+	content_warning TEXT
+	);
+
+	DROP TABLE movies;
+	
+	
+
+CREATE TABLE recommendation_logs (
+    recommendation_id TEXT PRIMARY KEY,
+	user_id TEXT,
+    movie_id TEXT,
+    recommendation_date DATE,
+    recommendation_type TEXT,
+    recommendation_score NUMERIC,
+    was_clicked TEXT,
+	position_in_list INT,
+	device_type TEXT,
+	time_of_day TEXT,
+	algorithm_version TEXT
+);
+
+CREATE TABLE reviews (
+    review_id TEXT PRIMARY KEY,
+	user_id TEXT,
+    movie_id TEXT,
+    rating INT,
+    review_date DATE,
+    device_type TEXT,
+    is_verified_watch TEXT,
+	helpful_votes INT,
+	total_votes INT,
+	review_text TEXT,
+	sentiment TEXT,
+	sentiment_score NUMERIC
+);
+
+
+CREATE TABLE search_logs (
+    search_id TEXT PRIMARY KEY,
+	user_id TEXT,
+    search_query TEXT,
+    search_date DATE,
+    results_returned INT,
+    clicked_result_position INT,
+	device_type TEXT,
+	search_duration_seconds NUMERIC,
+	had_typo TEXT,
+	used_filters TEXT,
+	location_country TEXT
+);
+
+CREATE TABLE users (
+    user_id TEXT PRIMARY KEY,
+	email TEXT,
+    first_name TEXT,
+    last_name TEXT,
+    age INT,
+    gender TEXT,
+    country TEXT,
+	state_province TEXT,
+	city TEXT,
+	subscription_plan TEXT,
+	subscription_start_date DATE,
+	is_active TEXT,
+	monthly_spend NUMERIC,
+	primary_device TEXT,
+	household_size INT,
+	created_at TIMESTAMP
+);
+
+CREATE TABLE sea_logs (
+    search_id TEXT PRIMARY KEY,
+	user_id TEXT,
+    search_query TEXT,
+    rating INT,
+    search_date DATE,
+    results_returned INT,
+    clicked_result_position INT,
+	device_type TEXT,
+	search_duration_seconds NUMERIC,
+	had_typo TEXT,
+	used_filters TEXT,
+	location_country TEXT
+);
+
+SELECT *
+FROM netflix.movies;
+
+SELECT *
+FROM netflix.recommendation_logs;
+
+SELECT *
+FROM reviews;
+
+SELECT *
+FROM netflix.search_logs;
+
+SELECT *
+FROM netflix.watch_history;
+
+SELECT *
+FROM netflix.users;
+
+
+SELECT movies.movie_id, movies.title, watch_history.user_id,
+       watch_history.watch_duration_minutes, movies.duration_minutes,
+	   ROUND(AVG(watch_history.watch_duration_minutes/movies.duration_minutes)*100,2) AS Avg_completion_rate
+FROM netflix.movies AS movies
+INNER JOIN netflix.watch_history AS watch_history
+ON movies.movie_id = watch_history.movie_id 
+WHERE movies.duration_minutes > 0
+GROUP BY movies.movie_id, watch_history.user_id, watch_history.watch_duration_minutes, movies.duration_minutes
+HAVING ROUND(AVG(watch_history.watch_duration_minutes/movies.duration_minutes)*100,2) IS NOT NULL
+ORDER BY avg_completion_rate ASC
+LIMIT 100;
+
+
+SELECT
+  user_id,
+  movie_id,
+  COUNT(*) AS watch_sessions
+FROM netflix.watch_history
+GROUP BY user_id, movie_id
+HAVING COUNT(*) > 1
+ORDER BY watch_sessions DESC;
+
+SELECT movies.genre_primary, users.country, ROUND(SUM(watch_history.watch_duration_minutes), 2) AS total_watch_minutes,
+    COUNT(*) AS total_views
+FROM movies
+JOIN watch_history
+ON movies.movie_id = watch_history.movie_id
+JOIN users
+ON watch_history.user_id = users.user_id
+GROUP BY movies.genre_primary, users.country
+ORDER BY
+    users.country,
+    total_watch_minutes DESC;
+ORDER BY users.country DESC;
+
+SELECT *
+FROM recommendation_logs
+LEFT OUTER JOIN watch_history
+ON recommendation_logs.movie_id = watch_history.movie_id;
+
+
+SELECT ROUND(
+       COUNT(DISTINCT(recommendation_logs.user_id))::NUMERIC
+	   / COUNT(*) * 100, 2)
+FROM recommendation_logs
+LEFT OUTER JOIN watch_history
+ON recommendation_logs.user_id = watch_history.user_id
+AND recommendation_logs.movie_id = watch_history.movie_id;
+
+
+SELECT users.first_name, users.last_name, users.user_id, movies.duration_minutes, movies.content_type,
+	    ROUND(SUM(COALESCE(watch_history.watch_duration_minutes,0):: NUMERIC),2) AS total_watch_time
+FROM users
+INNER JOIN watch_history
+ON users.user_id = watch_history.user_id
+INNER JOIN movies
+ON watch_history.movie_id = movies.movie_id
+GROUP BY users.user_id, users.first_name, users.last_name, movies.content_type
+ORDER BY total_watch_time DESC;
+
+SELECT
+    column_name,
+    data_type
+FROM information_schema.columns
+WHERE table_name = 'watch_history';
+
+
+SELECT users.first_name, users.last_name, users.user_id, movies.duration_minutes, movies.genre_primary, 
+	    ROUND(SUM(COALESCE(watch_history.watch_duration_minutes,0)),2) AS total_watch_time
+FROM users
+INNER JOIN watch_history
+ON users.user_id = watch_history.user_id
+INNER JOIN movies
+ON watch_history.movie_id = movies.movie_id
+GROUP BY users.user_id, users.first_name, users.last_name, movies.duration_minutes, movies.genre_primary
+ORDER BY total_watch_time DESC
+LIMIT 100;
+
+
+SELECT users.user_id, users.first_name, users.last_name, movies.genre_primary,
+    COUNT(*) AS total_watch_sessions,
+    ROUND(SUM(COALESCE(watch_history.watch_duration_minutes,0)),2) AS total_watch_time
+FROM users
+INNER JOIN watch_history
+ON users.user_id = watch_history.user_id
+INNER JOIN movies
+ON watch_history.movie_id = movies.movie_id
+GROUP BY users.user_id, users.first_name, users.last_name, movies.genre_primary
+ORDER BY total_watch_time DESC
+LIMIT 100;
+
+SELECT ROUND(COUNT (DISTINCT( search_logs.search_id)):: NUMERIC
+		/ COUNT (*) * 100,2) AS search_conversion
+FROM watch_history
+LEFT OUTER JOIN search_logs
+ON watch_history.user_id = search_logs.user_id;
+
+SELECT search_query, ROUND(COUNT (DISTINCT( search_logs.search_id)):: NUMERIC
+		/ COUNT (*) * 100,2) AS search_conversion
+FROM watch_history
+LEFT OUTER JOIN search_logs
+ON watch_history.user_id = search_logs.user_id
+AND watch_history.watch_date BETWEEN search_logs.search_date 
+AND search_logs.search_date + INTERVAL '7 days'
+GROUP BY search_query
+ORDER BY search_conversion ;
+
+SELECT users.subscription_plan, users.is_active, COUNT(users.is_active)
+FROM users
+INNER JOIN watch_history
+ON users.user_id = watch_history.user_id
+GROUP BY users.subscription_plan, users.is_active
+ORDER BY users.is_active ;
+
+
+SELECT users.subscription_plan,
+    COUNT(DISTINCT watch_history.session_id) AS total_watch_sessions,
+    SUM(watch_history.watch_duration_minutes) AS total_watch_minutes,
+    ROUND(AVG(watch_history.watch_duration_minutes),2) AS avg_watch_minutes_per_session
+FROM users
+INNER JOIN watch_history
+ON users.user_id = watch_history.user_id
+GROUP BY users.subscription_plan;
+
+
+WITH first_watch AS (
+    SELECT
+        user_id,
+        MIN(watch_date) AS first_watch_date
+    FROM watch_history
+    GROUP BY user_id
+)
+SELECT
+    users.user_id,
+    users.created_at,
+    first_watch.first_watch_date,
+    first_watch.first_watch_date - users.created_at AS days_to_first_watch
+FROM users 
+LEFT JOIN first_watch 
+  ON users.user_id = first_watch.user_id
+WHERE first_watch.first_watch_date >= users.created_at
+ORDER BY days_to_first_watch ASC
+LIMIT 100;
+
+SELECT
+    (AVG(first_watch.first_watch_date - users.created_at)) AS avg_days_to_first_watch
+FROM users
+JOIN (
+SELECT user_id, MIN(watch_history.watch_date::DATE) AS first_watch_date
+FROM watch_history
+GROUP BY user_id
+) AS first_watch
+ON users.user_id = first_watch.user_id;
+
+
+SELECT
+    CASE
+        WHEN first_watch.first_watch_date - users.created_at :: DATE= 0 THEN 'Day 0'
+        WHEN first_watch.first_watch_date - users.created_at :: DATE BETWEEN 1 AND 30 THEN '1–30 days'
+        WHEN first_watch.first_watch_date - users.created_at :: DATE BETWEEN 40 AND 90 THEN '40–60 days'
+        ELSE '60+ days'
+    END AS engagement_bucket,
+    COUNT(*) AS users_eng
+FROM users
+JOIN (
+SELECT user_id, MIN(watch_history.watch_date) AS first_watch_date
+FROM watch_history
+GROUP BY user_id
+) first_watch
+ON users.user_id = first_watch.user_id
+WHERE first_watch.first_watch_date >= users.created_at
+GROUP BY engagement_bucket
+ORDER BY users_eng DESC;
