@@ -23,7 +23,7 @@ and recommendation performance questions using PostgreSQL.
 - Standard and premium users show significantly higher total watch time.
 - Recommendation conversion rate varies strongly by genre.
 - Certain countries over-index on specific content categories.
--Delayed first engagement strongly correlates with increased churn risk.
+- Delayed first engagement strongly correlates with increased churn risk.
 
 ## 📁 Repository Structure
 - `/sql` → SQL scripts used for analysis
