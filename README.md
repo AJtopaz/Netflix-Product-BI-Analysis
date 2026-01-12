@@ -28,7 +28,6 @@ and recommendation performance questions using PostgreSQL.
 ## 📁 Repository Structure
 - `/sql` → SQL scripts used for analysis
 - `/insights` → Written conclusions
-- `/images` → Optional visual outputs
 
 ## 🚀 Why This Project
 This project demonstrates my readiness for:
