@@ -20,6 +20,7 @@ and recommendation performance questions using PostgreSQL.
 - Kaggle Dataset
 
 ## 📊 Key Insights
+- By filtering out short-form content and low-engagement titles, long-form movies with high completion rates emerged as key     engagement drivers, reinforcing completion rate as a valuable signal for content promotion and recommendation decisions.
 - Standard and premium users show significantly higher total watch time.
 - Recommendation conversion rate varies strongly by genre.
 - Certain countries over-index on specific content categories.
