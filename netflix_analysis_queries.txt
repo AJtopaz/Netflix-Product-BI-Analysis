@@ -21,8 +21,6 @@ CREATE TABLE movies (
 	added_to_platform DATE,
 	content_warning TEXT
 	);
-
-	DROP TABLE movies;
 	
 	
 
@@ -89,7 +87,7 @@ CREATE TABLE users (
 	created_at TIMESTAMP
 );
 
-CREATE TABLE sea_logs (
+CREATE TABLE search_logs (
     search_id TEXT PRIMARY KEY,
 	user_id TEXT,
     search_query TEXT,
@@ -123,16 +121,17 @@ SELECT *
 FROM netflix.users;
 
 
-SELECT movies.movie_id, movies.title, watch_history.user_id,
-       watch_history.watch_duration_minutes, movies.duration_minutes,
-	   ROUND(AVG(watch_history.watch_duration_minutes/movies.duration_minutes)*100,2) AS Avg_completion_rate
+SELECT movies.movie_id, movies.title, 
+       movies.duration_minutes,
+	   COUNT(DISTINCT (watch_history.user_id)) AS total_viewers,
+	   ROUND(AVG(watch_history.watch_duration_minutes *1.0/movies.duration_minutes)*100,2) AS Avg_completion_rate
 FROM netflix.movies AS movies
 INNER JOIN netflix.watch_history AS watch_history
 ON movies.movie_id = watch_history.movie_id 
-WHERE movies.duration_minutes > 0
-GROUP BY movies.movie_id, watch_history.user_id, watch_history.watch_duration_minutes, movies.duration_minutes
-HAVING ROUND(AVG(watch_history.watch_duration_minutes/movies.duration_minutes)*100,2) IS NOT NULL
-ORDER BY avg_completion_rate ASC
+WHERE movies.duration_minutes >= 60
+GROUP BY movies.movie_id, movies.title, movies.duration_minutes
+HAVING COUNT(DISTINCT (watch_history.user_id)) >= 50
+ORDER BY avg_completion_rate DESC
 LIMIT 100;
 
 
@@ -156,7 +155,38 @@ GROUP BY movies.genre_primary, users.country
 ORDER BY
     users.country,
     total_watch_minutes DESC;
-ORDER BY users.country DESC;
+
+
+WITH country_genre_watch AS (
+    SELECT
+        users.country,
+        movies.genre_primary,
+        SUM(watch_history.watch_duration_minutes) AS genre_watch_minutes
+    FROM watch_history
+    JOIN movies
+      ON watch_history.movie_id = movies.movie_id
+    JOIN users
+      ON watch_history.user_id = users.user_id
+    GROUP BY users.country, movies.genre_primary
+),
+country_total_watch AS (
+    SELECT
+        country,
+        SUM(genre_watch_minutes) AS total_watch_minutes
+    FROM country_genre_watch
+    GROUP BY country
+)
+SELECT
+    country_genre_watch.country,
+    country_genre_watch.genre_primary,
+    ROUND(
+        country_genre_watch.genre_watch_minutes * 100.0 / country_total_watch.total_watch_minutes,
+        2
+    ) AS genre_share_percentage
+FROM country_genre_watch
+JOIN country_total_watch
+  ON country_genre_watch.country = country_total_watch.country
+ORDER BY country, genre_share_percentage DESC;
 
 SELECT *
 FROM recommendation_logs
